@@ -1,89 +1,98 @@
+const express = require('express');
 const mongoose = require('mongoose');
+const { resolve } = require('path');
+const User = require('./schema'); // Import the User model
 
-// **Blog Post Schema**
-const blogPostSchema = new mongoose.Schema(
-  {
-    title: {
-      type: String,
-      required: true,
-      unique: true, // Ensures title is unique
-      minlength: [5, 'Title must be at least 5 characters long'],
-    },
-    content: {
-      type: String,
-      required: true,
-      minlength: [50, 'Content must be at least 50 characters long'],
-    },
-    author: {
-      type: String,
-      required: true,
-    },
-    tags: {
-      type: [String],
-      default: [], // Array of strings for tags, optional field
-    },
-    category: {
-      type: String,
-      default: 'General', // Default category set to "General"
-    },
-    likes: {
-      type: [String], // Array of usernames who liked the post
-      default: [],
-    },
-    createdAt: {
-      type: Date,
-      default: Date.now, // Sets current timestamp by default
-    },
-    updatedAt: {
-      type: Date,
-      default: Date.now, // Sets current timestamp, will update on modifications
-    },
-    comments: [
-      {
-        username: {
-          type: String,
-          required: true, // Username of the commenter
-        },
-        message: {
-          type: String,
-          required: true, // Comment message is required
-        },
-        commentedAt: {
-          type: Date,
-          default: Date.now, // Automatically set the current time
-        },
-      },
-    ],
-  },
-  {
-    timestamps: true, // Automatically adds `createdAt` and `updatedAt` fields
-  }
-);
+const app = express();
+const port = 3010;
 
-// Create the BlogPost model
-const BlogPost = mongoose.model('BlogPost', blogPostSchema);
+// MongoDB Connection
+mongoose.connect('mongodb://127.0.0.1:27017/blogDB')
+  .then(async () => {
+    console.log('Connected to MongoDB');
 
-// **Connect to MongoDB**
-mongoose.connect('mongodb://localhost:27017/blogApp', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-  .then(() => console.log('Connected to MongoDB'))
-  .catch((err) => console.error('Could not connect to MongoDB:', err));
+    // ✅ Delete the first user (hasini) automatically on startup
+    const firstUser = await User.findOne().sort({ createdAt: 1 }); // Get the oldest user
+    if (firstUser && firstUser.username !== 'hasini123') {
+      await User.findByIdAndDelete(firstUser._id);
+      console.log(`Deleted user: ${firstUser.username}`);
+    }
+  })
+  .catch(err => console.error('MongoDB connection error:', err));
 
-// **Create a new Blog Post**
-const newPost = new BlogPost({
-  title: 'Introduction to MongoDB',
-  content: 'MongoDB is a NoSQL database that stores data in JSON-like format...',
-  author: 'janeDoe',
-  tags: ['Database', 'NoSQL', 'MongoDB'],
+app.use(express.static('static'));
+app.use(express.json()); // Middleware to parse JSON request body
+
+// Serve Homepage
+app.get('/', (req, res) => {
+  res.sendFile(resolve(__dirname, 'pages/index.html'));
 });
 
-// Save the new blog post to the database
-newPost.save()
-  .then((post) => {
-    console.log('Blog Post Created:', post);
-  })
-  .catch((err) => {
-    console.error('Error creating blog post:', err);
-  });
+// ✅ Add a Sample User (Only if  doesn't exist)
+app.get('/add-user', async (req, res) => {
+  try {
+    const existingUser = await User.findOne({ username: 'hasini123' });
+    if (existingUser) return res.status(400).send('User already exists');
+
+    const newUser = new User({
+      username: 'hasini123',
+      email: 'hasini@example.com',
+      password: 'securepassword',
+      roles: ['admin'],
+      profile: { firstName: 'hasini', lastName: 'h', age: 25 }
+    });
+
+    await newUser.save();
+    res.send('User added successfully!');
+  } catch (error) {
+    res.status(500).send('Error adding user: ' + error.message);
+  }
+});
+
+// ✅ List All Users
+app.get('/users', async (req, res) => {
+  try {
+    const users = await User.find();
+    res.json(users);
+  } catch (error) {
+    res.status(500).send('Error fetching users: ' + error.message);
+  }
+});
+
+// ✅ Find User by ID
+app.get('/users/:id', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).send('User not found');
+    res.json(user);
+  } catch (error) {
+    res.status(500).send('Error fetching user: ' + error.message);
+  }
+});
+
+// ✅ Update User by ID
+app.put('/users/:id', async (req, res) => {
+  try {
+    const updatedUser = await User.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!updatedUser) return res.status(404).send('User not found');
+    res.json(updatedUser);
+  } catch (error) {
+    res.status(500).send('Error updating user: ' + error.message);
+  }
+});
+
+// ✅ Delete User by ID
+app.delete('/users/:id', async (req, res) => {
+  try {
+    const deletedUser = await User.findByIdAndDelete(req.params.id);
+    if (!deletedUser) return res.status(404).send('User not found');
+    res.send('User deleted successfully');
+  } catch (error) {
+    res.status(500).send('Error deleting user: ' + error.message);
+  }
+});
+
+// Start the Server
+app.listen(port, () => {
+  console.log(`Server running at http://localhost:${port}`);
+});
