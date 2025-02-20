@@ -7,13 +7,13 @@ const app = express();
 const port = 3010;
 
 // MongoDB Connection
-mongoose.connect('mongodb://127.0.0.1:27017/user_management')
+mongoose.connect('mongodb://127.0.0.1:27017/blogDB')
   .then(async () => {
     console.log('Connected to MongoDB');
 
-    // ✅ Delete the first user (Kishore) automatically on startup
+    // ✅ Delete the first user (hasini) automatically on startup
     const firstUser = await User.findOne().sort({ createdAt: 1 }); // Get the oldest user
-    if (firstUser && firstUser.username !== 'khalid123') {
+    if (firstUser && firstUser.username !== 'hasini123') {
       await User.findByIdAndDelete(firstUser._id);
       console.log(`Deleted user: ${firstUser.username}`);
     }
@@ -28,7 +28,7 @@ app.get('/', (req, res) => {
   res.sendFile(resolve(__dirname, 'pages/index.html'));
 });
 
-// ✅ Add a Sample User (Only if hasini doesn't exist)
+// ✅ Add a Sample User (Only if  doesn't exist)
 app.get('/add-user', async (req, res) => {
   try {
     const existingUser = await User.findOne({ username: 'hasini123' });
